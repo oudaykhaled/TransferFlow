@@ -1,0 +1,19 @@
+# Gradle, Android and Kotlin generated output
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.hprof
+*.log
+
+# Local editor/OS state
+.idea/
+*.iml
+.DS_Store
+
+# Local signing material
+*.jks
+*.keystore
+keystore.properties
+
+# Preserve authored Gradle wrapper, Room schemas and baseline profiles.

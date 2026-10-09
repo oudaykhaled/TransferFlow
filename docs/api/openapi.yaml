@@ -1,0 +1,126 @@
+openapi: 3.1.0
+info:
+  title: TransferFlow synthetic transfer contract
+  version: 1.0.0
+  description: >-
+    Interview demonstration only. No real banking or payment service is connected.
+    The default Android demo uses an independent durable local gateway ledger.
+    Money is integer EUR cents. A payer-scoped idempotency key identifies one immutable
+    canonical request, including recipient name, IBAN, amount and fee. Replaying that
+    request returns its original operation; changing the payload conflicts.
+paths:
+  /transfers:
+    post:
+      operationId: submitTransfer
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, minLength: 1}
+          description: Must equal the request body's key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TransferRequest'}
+      responses:
+        '201':
+          description: Newly recorded successful operation.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Operation'}}}
+        '200':
+          description: Original successful operation returned for an identical replay.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Operation'}}}
+        '202':
+          description: Recorded pending operation. Check status using the original key.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Operation'}}}
+        '422':
+          description: Recorded rejection with operation ID and rejection reason. No funds moved.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Operation'}}}
+        '409': {description: The same payer/key was used with a different canonical request.}
+        '500': {description: Outcome unknown. Retain the original key and look it up before retrying.}
+  /transfers/by-key/{key}:
+    get:
+      operationId: lookupTransfer
+      parameters:
+        - {name: key, in: path, required: true, schema: {type: string, minLength: 1}}
+        - {name: payerAccountId, in: query, required: true, schema: {type: string, minLength: 1}}
+      responses:
+        '200':
+          description: Original operation snapshot; terminal outcomes never regress.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Operation'}}}
+        '404': {description: Not found at this moment. This is not an authoritative rejection.}
+        '500': {description: Lookup unavailable. Keep the unresolved request and key.}
+  /dashboard:
+    get:
+      operationId: getDashboard
+      responses:
+        '200':
+          description: Account and transaction snapshot. Transaction IDs are unique.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Dashboard'}}}
+        '500': {description: Read unavailable. Preserve the previous cache and its timestamp.}
+components:
+  schemas:
+    MinorUnits: {type: integer, format: int64, minimum: 0, maximum: 9223372036854775807}
+    DutchIban:
+      type: string
+      pattern: '^NL[0-9]{2}[A-Z]{4}[0-9]{10}$'
+      description: Canonical uppercase Dutch IBAN, also validated with MOD97.
+    TransferRequest:
+      type: object
+      additionalProperties: false
+      required: [key, payerAccountId, recipientName, recipientIban, amountMinor, feeMinor, currency]
+      properties:
+        key: {type: string, minLength: 1}
+        payerAccountId: {type: string, minLength: 1}
+        recipientName: {type: string, minLength: 1, maxLength: 70}
+        recipientIban: {$ref: '#/components/schemas/DutchIban'}
+        amountMinor: {type: integer, format: int64, minimum: 1, maximum: 9223372036854775807}
+        feeMinor: {$ref: '#/components/schemas/MinorUnits'}
+        currency: {type: string, const: EUR}
+    Operation:
+      type: object
+      additionalProperties: false
+      required: [operationId, request, status, updatedAtEpochMillis]
+      properties:
+        operationId: {type: string, minLength: 1}
+        request: {$ref: '#/components/schemas/TransferRequest'}
+        status: {type: string, enum: [PENDING, SUCCEEDED, REJECTED]}
+        updatedAtEpochMillis: {type: integer, format: int64, minimum: 0}
+        rejectionReason:
+          type: [string, 'null']
+          enum: [INSUFFICIENT_FUNDS, TRANSFER_LIMIT, DEMO_REJECTED, null]
+          description: Required and non-null for REJECTED; absent or null otherwise.
+      description: The full request must equal the original canonical request. Amount plus fee must fit int64.
+    Account:
+      type: object
+      description: Available balance must not exceed booked balance in this transfer-only model.
+      additionalProperties: false
+      required: [id, displayName, iban, bookedBalanceMinor, availableBalanceMinor, cachedAtEpochMillis, currency]
+      properties:
+        id: {type: string, minLength: 1}
+        displayName: {type: string}
+        iban: {$ref: '#/components/schemas/DutchIban'}
+        bookedBalanceMinor: {$ref: '#/components/schemas/MinorUnits'}
+        availableBalanceMinor: {$ref: '#/components/schemas/MinorUnits'}
+        cachedAtEpochMillis: {type: integer, format: int64, minimum: 0}
+        currency: {type: string, const: EUR}
+    Transaction:
+      type: object
+      description: Amount plus fee must fit a signed int64. An invalid total rejects the entire dashboard snapshot.
+      additionalProperties: false
+      required: [operationId, recipientName, recipientIban, amountMinor, feeMinor, bookedAtEpochMillis, currency]
+      properties:
+        operationId: {type: string, minLength: 1}
+        recipientName: {type: string, minLength: 1, maxLength: 70}
+        recipientIban: {$ref: '#/components/schemas/DutchIban'}
+        amountMinor: {type: integer, format: int64, minimum: 1, maximum: 9223372036854775807}
+        feeMinor: {$ref: '#/components/schemas/MinorUnits'}
+        bookedAtEpochMillis: {type: integer, format: int64, minimum: 0}
+        currency: {type: string, const: EUR}
+    Dashboard:
+      type: object
+      additionalProperties: false
+      required: [account, transactions]
+      properties:
+        account: {$ref: '#/components/schemas/Account'}
+        transactions: {type: array, items: {$ref: '#/components/schemas/Transaction'}}

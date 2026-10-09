@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-09",
+  "device": "API35 arm64 emulator",
+  "runtime": "default debug application; no instrumentation override",
+  "pidBefore": 8441,
+  "pidAfterColdReopen": 8737,
+  "beforeState": "UNKNOWN",
+  "afterState": "SUCCEEDED",
+  "sameRequestKey": true,
+  "sameGatewayLedgerBeforeAndAfterRetry": true,
+  "operationId": "36701b1f-7e89-4b53-a7d0-a44ec1618da1",
+  "clientHistoryRows": 1,
+  "gatewayHistoryRows": 1,
+  "initialBookedMinor": 1248055,
+  "finalBookedMinor": 1245555,
+  "amountMinor": 2500,
+  "feeMinor": 0,
+  "activeSlotReleased": true
+}
