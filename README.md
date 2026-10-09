@@ -1,10 +1,20 @@
 # TransferFlow
 
+[![Android verification](https://github.com/oudaykhaled/TransferFlow/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/oudaykhaled/TransferFlow/actions/workflows/android.yml)
+
 A native Android portfolio app that demonstrates a safe transfer journey using a synthetic bank. Kotlin, Jetpack Compose, MVVM and Room; three modules with explicit data ownership.
 
 The central scenario is a timeout after the gateway accepts a transfer. The app keeps the original request, recovers its outcome after recreation, and replays safely without a second debit.
 
 Start with the [two-minute reviewer walkthrough](docs/demo-guide.md), then inspect the [execution evidence](docs/verification.md).
+
+Download an [installable synthetic demo with a SHA-256 checksum](docs/distribution.md) from a successful verification run, or build the source below. GitHub artifact downloads require sign-in and expire after 14 days.
+
+## Watch recovery in the actual app
+
+An 85-second emulator recording: review €25, lose the accepted response, cold-restart the app, then resolve the original transfer with **Retry safely**. Silent, normal speed; resized and converted to GIF without cuts. [Recording context and verification](docs/verification.md#recorded-reviewer-demo).
+
+<img src="docs/demo/transferflow.gif" width="360" alt="Actual TransferFlow demo showing review, lost response, cold restart and safe retry to Transfer complete" />
 
 ## Actual app captures
 
@@ -55,7 +65,7 @@ sequenceDiagram
     Client-->>UI: One operation, one history entry
 ```
 
-Read the [ownership decision](docs/adr/0001-durable-transfer-ownership.md), [HTTP contract](docs/api/openapi.yaml), and [verification evidence](docs/verification.md). Repository, gateway and UI tests sit beside their owning modules. The minified release compiles without the debug scenario controls.
+Read the [ownership decision](docs/adr/0001-durable-transfer-ownership.md), [HTTP contract](docs/api/openapi.yaml), [dependency policy](docs/dependency-policy.md), and [verification evidence](docs/verification.md). Repository, gateway and UI tests sit beside their owning modules. The minified release compiles without the debug scenario controls.
 
 ## Why this follows Katty
 

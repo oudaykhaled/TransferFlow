@@ -22,7 +22,7 @@ The data suite uses real SQLite under Robolectric (17 repository, 7 gateway and 
 
 Android lint reports **zero errors and 10 warnings**: retained target/toolchain pins, backup-rule metadata, and unused strings. Debug and instrumentation APKs compile. The release APK is R8-minified and resource-shrunk; it is unsigned, not a production-distributed build. No coverage percentage or measured performance claim is made.
 
-## Device journeys
+## Initial device journeys
 
 ```sh
 ./gradlew --no-daemon :app:connectedDebugAndroidTest \
@@ -32,6 +32,27 @@ Android lint reports **zero errors and 10 warnings**: retained target/toolchain 
 Result: **BUILD SUCCESSFUL**, 52 seconds. **10 instrumented tests, zero failures or skips** on API 35 arm64, Google Play emulator. These Compose journeys use real, individually isolated Room client and gateway stores. They cover success, validation, rejection, pending/recreation, lost-response lookup, lost-response safe retry with the original operation and exactly one debit/history entry, review editing, offline confirmation, and two 200% font size regressions (new-step heading visibility and first-error focus/visibility with the keyboard).
 
 The emulator used a task-owned AVD, a private ADB server on port 5038, and serial emulator-5690. Local environment variables ANDROID_ADB_SERVER_PORT and ANDROID_SERIAL selected it; other running devices were left alone. CI uses its own API 35 x86_64 emulator.
+
+## Reviewer-demo follow-up
+
+On 9 October 2026 the combined JVM, lint, debug/release packaging and device command passed in **1m 37s**:
+
+```sh
+./gradlew --no-daemon allJvmTests lintDebug \
+  :app:assembleDebug :app:assembleRelease :app:connectedDebugAndroidTest \
+  -Pandroid.injected.device.serial=emulator-5690 \
+  --no-parallel --max-workers=2 --console=plain
+```
+
+XML reports contain **83 JVM tests and 11 device tests, zero failures, errors or skips**. Lint remains at zero errors and 10 warnings. The additional API 35 arm64 journey requests actual landscape/portrait configuration changes and verifies draft/review values, reachable recovery actions, the whole persisted immutable request, and resolution of the original accepted operation. Editor focus does not establish keyboard visibility, and rotation is separate from the cold-process walkthrough below.
+
+The earlier main commit `fefb6424e5467ae02c7811f5594017815ff0b5e9` also passed [hosted run 37963938885](https://github.com/oudaykhaled/TransferFlow/actions/runs/37963938885): downloaded reports contain 83 JVM and the original 10 device tests, without failures, errors or skips. Consult the [verification workflow](https://github.com/oudaykhaled/TransferFlow/actions/workflows/android.yml) for the follow-up commit's separate hosted result. The new [APK distribution](distribution.md) requires a run with both jobs successful.
+
+## Recorded reviewer demo
+
+The [85-second GIF](demo/transferflow.gif) records the normal debug application on the same API 35 arm64 emulator on 9 October 2026. A fresh synthetic journal starts at €12,480.55. The recording shows scenario selection, fictional recipient fill, review of €25.00 with €0.00 fee, the lost-response outcome, force-stop/cold launch, and **Retry safely** resolving to **Transfer complete**. Force-stop and launch used ADB; the process changed from PID 4975 to 5473.
+
+The continuous source screen recording has no cuts, overlays, audio or speed changes. GIF conversion resizes it to 480 pixels wide, 6 frames per second and a 96-color palette. Important text and the final confirmed outcome were inspected after conversion. The recording ends on the confirmed outcome; a separate subsequent account capture/check found €12,455.55 and one Alex Morgan history row. Existing repository/device tests establish the unchanged request and unique debit/history invariants.
 
 ## Normal application recovery walkthrough
 

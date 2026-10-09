@@ -1,5 +1,7 @@
 package dev.transferflow.app
 
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
@@ -269,6 +271,142 @@ class TransferJourneyTest {
             )
         compose.onNodeWithText("This field is required.").assertIsDisplayed()
         compose.onNodeWithTag("screen_review").assertDoesNotExist()
+    }
+
+    @Test
+    fun realRotationPreservesDraftReviewAndUnresolvedTransfer() {
+        runtime.controls.setScenario(DemoScenario.TIMEOUT_AFTER_ACCEPTANCE)
+        rotateTo(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, Configuration.ORIENTATION_PORTRAIT)
+        try {
+            compose.onNodeWithTag("new_transfer").performScrollTo().performClick()
+            compose.onNodeWithTag("recipient_name").performTextInput("Alex Morgan")
+            compose.onNodeWithTag("recipient_iban").performTextInput("NL25DEMO0000000002")
+            compose.onNodeWithTag("amount").performScrollTo().performTextInput("25.00")
+            // Rotate from an active editor; this also exercises the IME when the device enables it.
+            compose.onNodeWithTag("amount").assertIsFocused()
+            rotateTo(
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+                Configuration.ORIENTATION_LANDSCAPE,
+            )
+            assertDraftIsPreserved()
+            compose.onNodeWithTag("review_transfer").performScrollTo().performClick()
+            assertReviewDetailsAreReachable()
+            compose.onNodeWithTag("edit_transfer").performScrollTo().assertIsDisplayed()
+
+            rotateTo(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, Configuration.ORIENTATION_PORTRAIT)
+            // A rebuilt ViewModel deliberately restores unconfirmed Review as an editable Form.
+            compose.waitUntil(15_000) {
+                compose.onAllNodesWithTag("screen_review").fetchSemanticsNodes().isNotEmpty() ||
+                    compose.onAllNodesWithTag("screen_form").fetchSemanticsNodes().isNotEmpty()
+            }
+            if (compose.onAllNodesWithTag("screen_form").fetchSemanticsNodes().isNotEmpty()) {
+                assertDraftIsPreserved()
+                compose.onNodeWithTag("review_transfer").performScrollTo().performClick()
+            }
+            assertReviewDetailsAreReachable()
+            compose.onNodeWithTag("confirm_transfer").performScrollTo().performClick()
+            waitForTitle("Let’s confirm the outcome")
+            val originalRequest = runBlocking {
+                checkNotNull(runtime.repository.findUnresolvedAttempt()).request
+            }
+
+            for ((requested, expected) in
+                listOf(
+                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE to
+                        Configuration.ORIENTATION_LANDSCAPE,
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT to Configuration.ORIENTATION_PORTRAIT,
+                )) {
+                rotateTo(requested, expected)
+                waitForTitle("Let’s confirm the outcome")
+                assertReviewDetailsAreReachable()
+                compose
+                    .onNodeWithTag("check_status")
+                    .performScrollTo()
+                    .assertIsDisplayed()
+                    .assertIsEnabled()
+                compose
+                    .onNodeWithTag("retry_safely")
+                    .performScrollTo()
+                    .assertIsDisplayed()
+                    .assertIsEnabled()
+                compose.onNodeWithTag("another_transfer").assertDoesNotExist()
+                compose.onNodeWithTag("edit_transfer").assertDoesNotExist()
+                val recovered = runBlocking {
+                    checkNotNull(runtime.repository.findUnresolvedAttempt())
+                }
+                assertEquals(originalRequest, recovered.request)
+                org.junit.Assert.assertTrue(recovered.status is AttemptStatus.Unknown)
+            }
+            compose.onNodeWithTag("check_status").performScrollTo().performClick()
+            waitForTitle("Transfer complete")
+            val confirmed = runBlocking {
+                checkNotNull(runtime.repository.observeAttempt(originalRequest.key).first()).status
+                    as AttemptStatus.Confirmed
+            }
+            assertEquals(originalRequest, confirmed.operation.request)
+            compose
+                .onNodeWithTag("operation_reference")
+                .assertTextEquals(confirmed.operation.id.value)
+        } finally {
+            rotateTo(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, Configuration.ORIENTATION_PORTRAIT)
+        }
+    }
+
+    private fun rotateTo(requestedOrientation: Int, expectedOrientation: Int) {
+        activity.onActivity { it.requestedOrientation = requestedOrientation }
+        compose.waitUntil(15_000) {
+            var actualOrientation = Configuration.ORIENTATION_UNDEFINED
+            activity.onActivity { actualOrientation = it.resources.configuration.orientation }
+            actualOrientation == expectedOrientation
+        }
+        compose.waitForIdle()
+    }
+
+    private fun assertDraftIsPreserved() {
+        waitFor("screen_form")
+        compose
+            .onNodeWithTag("recipient_name")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextContains("Alex Morgan")
+        compose
+            .onNodeWithTag("recipient_iban")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextContains("NL25DEMO0000000002")
+        compose
+            .onNodeWithTag("amount")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextContains("25.00")
+    }
+
+    private fun assertReviewDetailsAreReachable() {
+        compose
+            .onNodeWithTag("frozen_recipient")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals("Alex Morgan")
+        compose
+            .onNodeWithTag("frozen_iban")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals("NL25 DEMO 0000 0000 02")
+        compose
+            .onNodeWithTag("frozen_amount")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals(money(Euro(2500)))
+        compose
+            .onNodeWithTag("frozen_fee")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals(money(Euro.ZERO))
+        compose
+            .onNodeWithTag("frozen_total")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals(money(Euro(2500)))
     }
 
     private fun useLargeText() {
