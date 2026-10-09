@@ -2,7 +2,7 @@
 
 Use the debug APK on an Android 7.0+ emulator or device. All names, accounts and money are fictional. A fresh install starts with **€12,480.55** available; previous demo transfers change this balance.
 
-1. On the account screen, scroll to **Developer scenarios** and choose **Lost response**.
+1. On the account screen, scroll to and open **Developer scenarios**, then choose **Lost response**.
 2. Tap **New transfer**, then **Fill fictional recipient**. The fixture sends **€25.00** to Alex Morgan, with no fee.
 3. Tap **Review transfer**. Check the recipient, account, amount, fee and total. **Edit details** returns to the draft without submitting.
 4. Tap **Confirm transfer**. The synthetic gateway accepts and debits the transfer, then loses its response. The app shows **Let’s confirm the outcome**, rather than assuming failure.
